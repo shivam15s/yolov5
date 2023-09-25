@@ -34,6 +34,7 @@ import platform
 import sys
 from pathlib import Path
 
+import numpy as np
 import torch
 
 FILE = Path(__file__).resolve()
@@ -113,7 +114,7 @@ def run(
     vid_path, vid_writer = [None] * bs, [None] * bs
 
     # Run inference
-    model.warmup(imgsz=(1 if pt or model.triton else bs, 3, *imgsz))  # warmup
+    model.warmup(imgsz=(1 if pt or model.triton else bs, 11, *imgsz))  # warmup
     seen, windows, dt = 0, [], (Profile(), Profile(), Profile())
     for path, im, im0s, vid_cap, s in dataset:
         with dt[0]:
@@ -144,6 +145,11 @@ def run(
             else:
                 p, im0, frame = path, im0s.copy(), getattr(dataset, 'frame', 0)
 
+            im = im[:, :3, :, :]  # remove unused channels
+            im0[:, :, 2] = sum([im0[:, :, i] for i in range(3, im0.shape[2])])
+            im0 = im0[:, :, :3]
+            im0 = np.ascontiguousarray(im0)
+            print(im0.shape)
             p = Path(p)  # to Path
             save_path = str(save_dir / p.name)  # im.jpg
             txt_path = str(save_dir / 'labels' / p.stem) + ('' if dataset.mode == 'image' else f'_{frame}')  # im.txt
@@ -188,7 +194,7 @@ def run(
             # Save results (image with detections)
             if save_img:
                 if dataset.mode == 'image':
-                    cv2.imwrite(save_path, im0)
+                    cv2.imwrite(save_path.replace('.csv', '.jpg'), im0)
                 else:  # 'video' or 'stream'
                     if vid_path[i] != save_path:  # new video
                         vid_path[i] = save_path

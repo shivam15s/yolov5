@@ -304,7 +304,12 @@ class LoadImages:
         else:
             # Read image
             self.count += 1
-            im0 = cv2.imread(path)  # BGR
+            x = path.split('images')
+            path = x[0] + 'image_channels' + x[1]
+            path = path.replace('.jpg', '.csv')
+            im0 = np.loadtxt(path, delimiter=',')
+            im0 = im0.reshape((im0.shape[0], im0.shape[0], im0.shape[1]//im0.shape[0])).astype(np.uint8)
+            # im0 = cv2.imread(path)  # BGR
             assert im0 is not None, f'Image Not Found {path}'
             s = f'image {self.count}/{self.nf} {path}: '
 
@@ -452,6 +457,7 @@ class LoadImagesAndLabels(Dataset):
                  prefix=''):
         self.img_size = img_size
         self.augment = augment
+        self.augment = False
         self.hyp = hyp
         self.image_weights = image_weights
         self.rect = False if image_weights else rect
@@ -671,7 +677,9 @@ class LoadImagesAndLabels(Dataset):
 
             # Letterbox
             shape = self.batch_shapes[self.batch[index]] if self.rect else self.img_size  # final letterboxed shape
-            img, ratio, pad = letterbox(img, shape, auto=False, scaleup=self.augment)
+            # img, ratio, pad = letterbox(img, shape, auto=False, scaleup=self.augment)
+            ratio = (1.0, 1.0)
+            pad = (0.0, 0.0)
             shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling
 
             labels = self.labels[index].copy()
@@ -732,7 +740,18 @@ class LoadImagesAndLabels(Dataset):
             if fn.exists():  # load npy
                 im = np.load(fn)
             else:  # read image
-                im = cv2.imread(f)  # BGR
+                x = f.split('images')
+                f = x[0] + 'image_channels' + x[1]
+                f = f.replace('.jpg', '.csv')
+                im = np.loadtxt(f, delimiter=',')
+                im = im.reshape((im.shape[0], im.shape[0], im.shape[1]//im.shape[0])).astype(np.uint8)
+
+                # im = cv2.imread(f)  # BGR
+                # # add alpha channel if missing
+                # if im is not None and im.shape[2] == 3:
+                #     # add 7 more channels
+                #     for _ in range(7):
+                #         im = np.concatenate([im, np.full((im.shape[0], im.shape[1], 1), 255, dtype=np.uint8)], 2)
                 assert im is not None, f'Image Not Found {f}'
             h0, w0 = im.shape[:2]  # orig hw
             r = self.img_size / max(h0, w0)  # ratio
